@@ -9,8 +9,9 @@ Author URI: http://blog.wangjunfeng.com
 License: MIT
 */
 require_once('sdk/include.php');
-use Qcloud_cos\Auth;
-use Qcloud_cos\Cosapi;
+use qcloudcos\Auth;
+use qcloudcos\Cosapi;
+
 
 if (!defined('WP_PLUGIN_URL'))
     define('WP_PLUGIN_URL', WP_CONTENT_URL . '/plugins');//  plugin url
@@ -29,7 +30,8 @@ function cos_set_options()
         'app_id' => "",
         'secret_id' => "",
         'secret_key' => "",
-        'nothumb' => "false", // 是否上传所旅途
+        'syncup' => "false", // 是否上传本地附件
+        'nothumb' => "false", // 是否上传缩略图
         'nolocalsaving' => "false", // 是否保留本地备份
         'upload_url_path' => "", // URL前缀
     );
@@ -61,9 +63,19 @@ function _file_upload($object, $file, $opt = array())
         try {
             //实例化存储对象
             $qcloud_cos = new Cosapi();
+            
+            $data = $qcloud_cos->stat($cos_bucket, $object);
+            if($data['code'] == 0) {
+                //var_dump($data);
+                // 文件已经存在; 
+                // TODO: 对比签名,是否要更新
+                return TRUE;
+            }
+            
             $dirname = dirname($object);
             _create_folder($cos_bucket, $dirname);
-            $data = $qcloud_cos->upload($file, $cos_bucket, $object);
+            $data = $qcloud_cos->upload($cos_bucket, $file, $object);
+            //var_dump($data);
             return TRUE;
         } catch (Exception $ex) {
             return FALSE;
@@ -82,19 +94,22 @@ function _create_folder($cos_bucket, $dir)
 {
     $qcloud_cos = new Cosapi();
     $data = $qcloud_cos->statFolder($cos_bucket, $dir . '/');
-    if ($data['code'] == -166) {
+    //var_dump($cos_bucket);
+    //var_dump($dir);
+    //var_dump($data);
+    if ($data['code'] == -197) {
         $dir_array = explode('/', $dir);
         $dir_name = '';
         foreach ($dir_array as $dir) {
             $dir_name .= ($dir . '/');
             $result = $qcloud_cos->statFolder($cos_bucket, $dir_name);
-            if ($result['code'] == -166) {
+            if ($result['code'] == -197) {
+                //var_dump($dir_name);
                 $qcloud_cos->createFolder($cos_bucket, $dir_name);
             }
         }
     }
 }
-
 
 /**
  * 是否需要删除本地文件
@@ -127,6 +142,50 @@ function _delete_local_file($file)
     }
 }
 
+function syncup_attachments() {
+    
+    $cos_options = get_option('cos_options', TRUE);
+    $nothumb = (esc_attr($cos_options['nothumb']) == 'true');
+        
+    $query_images_args = array(
+        'post_type'      => 'attachment',
+        'post_mime_type' => 'image',
+        'post_status'    => 'inherit',
+        'posts_per_page' => - 1,
+    );
+
+    $query_images = new WP_Query( $query_images_args );
+
+    foreach ( $query_images->posts as $image ) {
+        $file = get_attached_file( $image->ID );
+        $file = str_replace("\\", '/', $file);
+        $local_path = dirname($file);
+        
+        $object = str_replace(get_home_path(), '', $file);
+        //$home_path  = get_home_path();
+        //var_dump($home_path);
+        //var_dump($object);
+        var_dump($file);
+        //$file = str_replace("/", '\\', $file);
+        _file_upload('/' . $object, $file);
+        
+        
+        if(!$nothumb) {
+            $imagedata = wp_get_attachment_metadata( $image->ID );
+            //var_dump($imagedata);
+            $sizes = $imagedata['sizes'];
+            
+            if(is_array($sizes)) {
+                foreach($sizes as $thumb) {
+                    $thumb_file = $local_path ."/". $thumb['file'];
+                    //var_dump($thumb_file);
+                    $object = str_replace(get_home_path(), '', $thumb_file);
+                    _file_upload('/' . $object, $thumb_file);
+                }
+            }
+        }
+    }
+}
 
 /**
  * 上传附件（包括图片的原图）
@@ -207,7 +266,7 @@ function upload_thumbs($metadata)
             $file = $file_path . $val['file'];
             //设置可选参数
             $opt = array('Content-Type' => $val['mime-type']);
-
+            var_dump($object, $file, $opt);
             //执行上传操作
             _file_upload($object, $file, $opt);
 
@@ -255,6 +314,7 @@ function modefiy_img_url($url, $post_id)
 {
     $home_path = str_replace(array('/', '\\'), array('', ''), get_home_path());
     $url = str_replace($home_path, '', $url);
+    var_dump($url);
     return $url;
 }
 
@@ -297,6 +357,7 @@ function cos_setting_page()
         $options['secret_id'] = (isset($_POST['secret_id'])) ? trim(stripslashes($_POST['secret_id'])) : '';
         $options['secret_key'] = (isset($_POST['secret_key'])) ? trim(stripslashes($_POST['secret_key'])) : '';
         $options['nothumb'] = (isset($_POST['nothumb'])) ? 'true' : 'false';
+        $options['syncup'] = (isset($_POST['syncup'])) ? 'true' : 'false';
         $options['nolocalsaving'] = (isset($_POST['nolocalsaving'])) ? 'true' : 'false';
         //仅用于插件卸载时比较使用
         $options['upload_url_path'] = (isset($_POST['upload_url_path'])) ? trim(stripslashes($_POST['upload_url_path'])) : '';
@@ -313,6 +374,10 @@ function cos_setting_page()
 
         $upload_url_path = trim(trim(stripslashes($_POST['upload_url_path'])), '/');
         update_option('upload_url_path', $upload_url_path);
+        
+        if($options['syncup']) {
+            syncup_attachments();
+        }
 
         ?>
         <div class="updated"><p><strong>设置已保存！</strong></p></div>
@@ -330,6 +395,9 @@ function cos_setting_page()
 
     $cos_nothumb = esc_attr($cos_options['nothumb']);
     $cos_nothumb = ($cos_nothumb == 'true');
+    
+    $cos_syncup = esc_attr($cos_options['syncup']);
+    $cos_syncup = ($cos_syncup == 'true');
 
     $cos_nolocalsaving = esc_attr($cos_options['nolocalsaving']);
     $cos_nolocalsaving = ($cos_nolocalsaving == 'true');
@@ -399,6 +467,16 @@ function cos_setting_page()
                                name="nolocalsaving" <?php if ($cos_nolocalsaving) echo 'checked="TRUE"'; ?> />
 
                         <p>建议不勾选</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <legend>同步本地附件到cos</legend>
+                    </th>
+                    <td>
+                        <input type="checkbox" name="syncup" <?php if ($cos_syncup) echo 'checked="TRUE"'; ?> />
+
+                        <p>建议勾选</p>
                     </td>
                 </tr>
                 <tr>

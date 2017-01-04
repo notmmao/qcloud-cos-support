@@ -1,5 +1,7 @@
 <?php
-require_once('Qcloud_cos/Auth.php');
-require_once('Qcloud_cos/Conf.php');
-require_once('Qcloud_cos/Cosapi.php');
-require_once('Qcloud_cos/Http.php');
+
+require_once(__DIR__ . DIRECTORY_SEPARATOR . 'qcloudcos' . DIRECTORY_SEPARATOR . 'auth.php');
+require_once(__DIR__ . DIRECTORY_SEPARATOR . 'qcloudcos' . DIRECTORY_SEPARATOR . 'conf.php');
+require_once(__DIR__ . DIRECTORY_SEPARATOR . 'qcloudcos' . DIRECTORY_SEPARATOR . 'cosapi.php');
+require_once(__DIR__ . DIRECTORY_SEPARATOR . 'qcloudcos' . DIRECTORY_SEPARATOR . 'http_client.php');
+require_once(__DIR__ . DIRECTORY_SEPARATOR . 'qcloudcos' . DIRECTORY_SEPARATOR . 'slice_uploading.php');

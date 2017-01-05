@@ -20,9 +20,10 @@ class Auth {
      * Return error code if parameter is not valid.
      */
     public static function createReusableSignature($expiration, $bucket, $filepath = null) {
-        $appId = Conf::APP_ID;
-        $secretId = Conf::SECRET_ID;
-        $secretKey = Conf::SECRET_KEY;
+        $conf_object = Conf::getInstance();
+        $appId = $conf_object::$APP_ID;
+        $secretId = $conf_object::$SECRET_ID;
+        $secretKey = $conf_object::$SECRET_KEY;
 
         if (empty($appId) || empty($secretId) || empty($secretKey)) {
             return self::AUTH_SECRET_ID_KEY_ERROR;
@@ -46,9 +47,10 @@ class Auth {
      * Return error code if parameter is not valid.
      */
     public static function createNonreusableSignature($bucket, $filepath) {
-        $appId = Conf::APP_ID;
-        $secretId = Conf::SECRET_ID;
-        $secretKey = Conf::SECRET_KEY;
+        $conf_object = Conf::getInstance();
+        $appId = $conf_object::APP_ID;
+        $secretId = $conf_object::SECRET_ID;
+        $secretKey = $conf_object::SECRET_KEY;
 
         if (empty($appId) || empty($secretId) || empty($secretKey)) {
             return self::AUTH_SECRET_ID_KEY_ERROR;

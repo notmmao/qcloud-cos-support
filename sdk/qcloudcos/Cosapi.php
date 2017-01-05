@@ -563,8 +563,8 @@ class Cosapi {
     private static function generateResUrl($bucket, $dstPath) {
         $endPoint = Conf::API_COSAPI_END_POINT;
         $endPoint = str_replace('region', self::$region, $endPoint);
-
-        return $endPoint . Conf::APP_ID . '/' . $bucket . $dstPath;
+        $conf_object = Conf::getInstance();
+        return $endPoint . $conf_object::$APP_ID . '/' . $bucket . $dstPath;
     }
 
 	/*

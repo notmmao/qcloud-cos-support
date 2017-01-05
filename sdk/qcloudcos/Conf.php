@@ -6,11 +6,19 @@ class Conf {
     // Cos php sdk version number.
     const VERSION = 'v4.2.1';
     const API_COSAPI_END_POINT = 'http://region.file.myqcloud.com/files/v2/';
-
-    // Please refer to http://console.qcloud.com/cos to fetch your app_id, secret_id and secret_key.
-    const APP_ID = '1251246980';
-    const SECRET_ID = 'AKIDeCaxMuDXbUL1Qgn4LWWNG6qcFhx5s0pY';
-    const SECRET_KEY = 'gCansqdFg9QVTRHxhJk0BDF6mGYkokV7';
+    
+    public static $APP_ID;
+    public static $SECRET_ID;
+    public static $SECRET_KEY;
+    
+    private static $_instance; 
+    public static function getInstance() { 
+        if(!isset(self::$_instance)) { 
+            $c=__CLASS__; 
+            self::$_instance=new $c; 
+        } 
+        return self::$_instance; 
+    }
 
     public function __construct()    {
         $cos_options = get_option('cos_options', TRUE);

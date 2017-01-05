@@ -8,20 +8,53 @@ Author: Jeffery Wang
 Author URI: http://blog.wangjunfeng.com
 License: MIT
 */
+
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 require_once('sdk/include.php');
 use qcloudcos\Auth;
 use qcloudcos\Cosapi;
+    
+function qcloud_cod_init() {
 
 
-if (!defined('WP_PLUGIN_URL'))
-    define('WP_PLUGIN_URL', WP_CONTENT_URL . '/plugins');//  plugin url
+    if (!defined('WP_PLUGIN_URL'))
+        define('WP_PLUGIN_URL', WP_CONTENT_URL . '/plugins');//  plugin url
 
-define('COS_BASENAME', plugin_basename(__FILE__));
-define('COS_BASEFOLDER', plugin_basename(dirname(__FILE__)));
+    define('COS_BASENAME', plugin_basename(__FILE__));
+    define('COS_BASEFOLDER', plugin_basename(dirname(__FILE__)));
 
-// 初始化选项
-register_activation_hook(__FILE__, 'cos_set_options');
+    // 初始化选项
+    register_activation_hook(__FILE__, 'cos_set_options');
+    register_deactivation_hook(__FILE__, 'cos_deactive');
+    
+    //避免上传插件/主题时出现同步到COS的情况
+    if (substr_count($_SERVER['REQUEST_URI'], '/update.php') <= 0)
+        add_filter('wp_handle_upload', 'upload_attachments', 50);
 
+    
+    //避免上传插件/主题时出现同步到COS的情况
+    if (substr_count($_SERVER['REQUEST_URI'], '/update.php') <= 0)
+        add_filter('wp_generate_attachment_metadata', 'upload_thumbs', 100);
+
+
+    add_action('wp_delete_file', 'delete_remote_file', 100);
+
+
+    if (get_option('upload_path') == '.') {
+        add_filter('wp_get_attachment_url', 'modefiy_img_url', 30, 2);
+    }
+
+    add_filter('plugin_action_links', 'cos_plugin_action_links', 10, 2);
+    // 后台设置页面
+    add_action('admin_menu', 'cos_add_setting_page');
+
+}
+
+add_action( 'plugins_loaded', 'qcloud_cod_init' );
+
+function cos_deactive() {
+    update_option('upload_url_path', '');
+}
 // 初始化选项
 function cos_set_options()
 {
@@ -37,6 +70,8 @@ function cos_set_options()
     );
     add_option('cos_options', $options, '', 'yes');
 }
+
+
 
 
 /**
@@ -208,10 +243,6 @@ function upload_attachments($metadata)
     return $metadata;
 }
 
-//避免上传插件/主题时出现同步到COS的情况
-if (substr_count($_SERVER['REQUEST_URI'], '/update.php') <= 0)
-    add_filter('wp_handle_upload', 'upload_attachments', 50);
-
 
 /**
  * 上传图片的缩略图
@@ -266,11 +297,6 @@ function upload_thumbs($metadata)
     return $metadata;
 }
 
-//避免上传插件/主题时出现同步到COS的情况
-if (substr_count($_SERVER['REQUEST_URI'], '/update.php') <= 0)
-    add_filter('wp_generate_attachment_metadata', 'upload_thumbs', 100);
-
-
 /**
  * 删除远程服务器上的单个文件
  */
@@ -294,8 +320,6 @@ function delete_remote_file($file)
     return $file;
 }
 
-add_action('wp_delete_file', 'delete_remote_file', 100);
-
 
 // 当upload_path为根目录时，需要移除URL中出现的“绝对路径”
 function modefiy_img_url($url, $post_id)
@@ -303,10 +327,6 @@ function modefiy_img_url($url, $post_id)
     $home_path = str_replace(array('/', '\\'), array('', ''), get_home_path());
     $url = str_replace($home_path, '', $url);
     return $url;
-}
-
-if (get_option('upload_path') == '.') {
-    add_filter('wp_get_attachment_url', 'modefiy_img_url', 30, 2);
 }
 
 
@@ -319,8 +339,6 @@ function cos_plugin_action_links($links, $file)
     return $links;
 }
 
-add_filter('plugin_action_links', 'cos_plugin_action_links', 10, 2);
-
 
 // 在导航栏“设置”中添加条目
 function cos_add_setting_page()
@@ -328,7 +346,6 @@ function cos_add_setting_page()
     add_options_page('腾讯云COS设置', '腾讯云COS设置', 'manage_options', __FILE__, 'cos_setting_page');
 }
 
-add_action('admin_menu', 'cos_add_setting_page');
 
 
 // 插件设置页面
@@ -373,7 +390,7 @@ function cos_setting_page()
 
     $cos_options = get_option('cos_options', TRUE);
     $upload_path = get_option('upload_path');
-    $upload_url_path = get_option('upload_url_path');
+    $upload_url_path = esc_attr($cos_options['upload_url_path']);
 
     $cos_bucket = esc_attr($cos_options['bucket']);
     $cos_app_id = esc_attr($cos_options['app_id']);

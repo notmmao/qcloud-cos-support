@@ -25,7 +25,6 @@ class Conf {
         self::$APP_ID = esc_attr($cos_options['app_id']);
         self::$SECRET_ID = esc_attr($cos_options['secret_id']);
         self::$SECRET_KEY = esc_attr($cos_options['secret_key']);
-        var_dump(self::$APP_ID);
     }
 
     /**

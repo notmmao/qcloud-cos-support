@@ -66,16 +66,17 @@ function _file_upload($object, $file, $opt = array())
             
             $data = $qcloud_cos->stat($cos_bucket, $object);
             if($data['code'] == 0) {
-                //var_dump($data);
-                // 文件已经存在; 
-                // TODO: 对比签名,是否要更新
-                return TRUE;
+                // 文件已经存在,则对比hash.
+                $local_sha1 = sha1_file($file);
+                if($data['data']['sha'] == $local_sha1) {
+                    // hash签名相同,无需更新..
+                    return TRUE;
+                }
             }
             
             $dirname = dirname($object);
             _create_folder($cos_bucket, $dirname);
             $data = $qcloud_cos->upload($cos_bucket, $file, $object);
-            //var_dump($data);
             return TRUE;
         } catch (Exception $ex) {
             return FALSE;
@@ -94,9 +95,6 @@ function _create_folder($cos_bucket, $dir)
 {
     $qcloud_cos = new Cosapi();
     $data = $qcloud_cos->statFolder($cos_bucket, $dir . '/');
-    //var_dump($cos_bucket);
-    //var_dump($dir);
-    //var_dump($data);
     if ($data['code'] == -197) {
         $dir_array = explode('/', $dir);
         $dir_name = '';
@@ -104,7 +102,6 @@ function _create_folder($cos_bucket, $dir)
             $dir_name .= ($dir . '/');
             $result = $qcloud_cos->statFolder($cos_bucket, $dir_name);
             if ($result['code'] == -197) {
-                //var_dump($dir_name);
                 $qcloud_cos->createFolder($cos_bucket, $dir_name);
             }
         }
@@ -162,23 +159,15 @@ function syncup_attachments() {
         $local_path = dirname($file);
         
         $object = str_replace(get_home_path(), '', $file);
-        //$home_path  = get_home_path();
-        //var_dump($home_path);
-        //var_dump($object);
-        var_dump($file);
-        //$file = str_replace("/", '\\', $file);
         _file_upload('/' . $object, $file);
-        
         
         if(!$nothumb) {
             $imagedata = wp_get_attachment_metadata( $image->ID );
-            //var_dump($imagedata);
             $sizes = $imagedata['sizes'];
             
             if(is_array($sizes)) {
                 foreach($sizes as $thumb) {
                     $thumb_file = $local_path ."/". $thumb['file'];
-                    //var_dump($thumb_file);
                     $object = str_replace(get_home_path(), '', $thumb_file);
                     _file_upload('/' . $object, $thumb_file);
                 }
@@ -266,7 +255,6 @@ function upload_thumbs($metadata)
             $file = $file_path . $val['file'];
             //设置可选参数
             $opt = array('Content-Type' => $val['mime-type']);
-            var_dump($object, $file, $opt);
             //执行上传操作
             _file_upload($object, $file, $opt);
 
@@ -314,7 +302,6 @@ function modefiy_img_url($url, $post_id)
 {
     $home_path = str_replace(array('/', '\\'), array('', ''), get_home_path());
     $url = str_replace($home_path, '', $url);
-    var_dump($url);
     return $url;
 }
 
@@ -375,7 +362,7 @@ function cos_setting_page()
         $upload_url_path = trim(trim(stripslashes($_POST['upload_url_path'])), '/');
         update_option('upload_url_path', $upload_url_path);
         
-        if($options['syncup']) {
+        if($options['syncup'] && $options['upload_url_path'] != '') {
             syncup_attachments();
         }
 

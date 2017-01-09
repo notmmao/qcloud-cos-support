@@ -1,11 +1,11 @@
 <?php
 /*
-Plugin Name: 腾讯云COS附件
-Plugin URI: http://blog.wangjunfeng.com
-Description: 使用腾讯云对象存储服务 COS 作为附件存储空间。（This is a plugin that uses QCloud Cloud Object Service for attachments remote saving.）
-Version: 0.1.0
-Author: Jeffery Wang
-Author URI: http://blog.wangjunfeng.com
+Plugin Name: QCloud_COSv4 同步插件
+Plugin URI: http://www.notmmao.com
+Description: 使用腾讯云对象存储服务 COS 作为附件存储空间。
+Version: 1.0.0
+Author: notmmao
+Author URI: http://www.notmmao.com
 License: MIT
 */
 
